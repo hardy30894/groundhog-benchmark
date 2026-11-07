@@ -133,10 +133,10 @@ cd groundhog-benchmark
 python -m groundhog.run --system lexcache --limit 10
 ```
 
-`--limit 10` runs the first 10 instances of each of the 33 family-domain pairs, which takes a
-few minutes. Without it the run covers all 3,300 instances. The output is one row per
-pair; `--out results.json` writes a result file with the rows and everything needed to
-identify the run.
+`--limit 10` runs the first 10 instances of each of the 33 family-domain pairs, which takes
+about two minutes. Without it the run covers all 3,300 instances, in about eight minutes.
+The output is one row per pair; `--out results.json` writes a result file with the rows and
+everything needed to identify the run.
 
 ```bash
 python -m groundhog.run --system control --families lookup,horizon --domains code
@@ -301,7 +301,7 @@ runs recorded, and two of them train a classifier first:
 | system | setup | time for a full run |
 |---|---|---|
 | LexCache, AgenticCache | none | minutes |
-| GPTCache | `pip install -r requirements/gptcache.txt` | minutes |
+| GPTCache | `pip install -r requirements/gptcache.txt` | minutes on 8 cores, about 40 on GitHub's runners |
 | vCache | `pip install -r requirements/vcache.txt`; its own dependencies include vllm, a large install | minutes |
 | W5H2 | `pip install -r requirements/w5h2.txt`, the authors' checkout (see the file), then `python scripts/train_w5h2.py` | about 20 minutes, 5 of them training |
 | AgentReuse | `pip install -r requirements/agentreuse.txt`, then `python scripts/train_agentreuse.py` and, for one configuration, `--labels semantic` | about an hour, half of it training; training needs 16 GB of memory |
@@ -309,10 +309,13 @@ runs recorded, and two of them train a classifier first:
 
 The runs in [`results/`](results) were made on Linux machines with 8 CPU cores and no GPU.
 
-The baseline, LexCache and AgenticCache are plain Python and repeat exactly. GPTCache, W5H2
-and AgentReuse are deterministic given their models, so they repeat exactly with the pinned
-versions. vCache decides between serving and asking the model by an unseeded random draw,
-and GenCache's programs are written by a model, so their reruns differ a little from the
+Rerun with this code on GitHub's runners, the baseline, LexCache, AgenticCache at K = 1 and
+K = 2, and GPTCache matched their published files exactly, pair by pair.
+[`.github/workflows/reproduce.yml`](.github/workflows/reproduce.yml) makes those runs and
+checks every command in this README; start it from the repository's Actions tab. W5H2 and
+AgentReuse use no randomness when they run, so with the pinned versions they should match
+too. vCache decides between serving and asking the model by an unseeded random draw, and
+GenCache's programs are written by a model, so their reruns differ a little from the
 published files; the reproduce script reports those differences without treating them as
 failures.
 
