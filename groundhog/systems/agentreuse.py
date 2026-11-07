@@ -58,7 +58,7 @@ CHECK = "agentreuse-check"
 
 UNDEFINED = "undefined"
 
-MODELS = str(Path(__file__).resolve().parents[2] / "models")
+MODELS = str(Path("models").resolve())
 TRAINED = {"outcome": "agentreuse", "semantic": "agentreuse-semantic"}
 WEIGHTS = ("agentreuse", "agentreuse-semantic")
 

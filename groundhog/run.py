@@ -4,13 +4,14 @@ For each family-domain pair the harness makes two passes over the same instances
 straight to the model, which is the baseline and the benchmark's self-check, and one
 through the system under test, started fresh for that pair.
 
-    python -m groundhog.run --system lexcache --out runs/lexcache.json
+    groundhog --system lexcache --out runs/lexcache.json
 """
 
 import argparse
 import ast
 import collections
 import hashlib
+import importlib.machinery
 import importlib.util
 import json
 import os
@@ -22,6 +23,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import sysconfig
 import threading
 import time
 from pathlib import Path
@@ -36,7 +38,8 @@ from .world import DOMAINS
 
 PACKAGE = Path(__file__).resolve().parent
 ROOT = PACKAGE.parent
-MODELS = ROOT / "models"
+# Trained classifiers live in models/ under the directory the benchmark is run from.
+MODELS = Path("models").resolve()
 
 
 def as_effect(pair):
@@ -92,6 +95,8 @@ def starter(system, model_port, pinned=None):
         target = f"http://127.0.0.1:{port}"
         if system.startswith("py:"):
             module_name, _, class_name = system[3:].rpartition(":")
+            if os.getcwd() not in sys.path:
+                sys.path.insert(0, os.getcwd())
             proxy = getattr(importlib.import_module(module_name), class_name)(port, upstream)
             serve(proxy)
 
@@ -194,6 +199,11 @@ def evaluate(
         if shared:
             control = shared["runs"]
             problems = shared["problems"]
+            if len(control) != len(batch):
+                raise SystemExit(
+                    f"{label}: the saved baseline has {len(control)} instances and this run "
+                    f"has {len(batch)}; make the baseline with the same --limit"
+                )
         else:
             quiesced(model)
             leaked = model.spent - closed_at[0] if closed_at[0] else 0.0
@@ -341,23 +351,44 @@ def attributed(runs, phase_total):
         run["metered"] += residual * (run["metered"] / windows)
 
 
-def module_closure(name):
-    """The source files of a groundhog module and every groundhog module it imports."""
+def own_code(path):
+    """Whether a file is the user's own code: under the current directory, and not part of
+    Python or of an installed package, which the result records by version instead."""
+    path = os.path.realpath(path)
+    places = sysconfig.get_paths()
+    kinds = ("stdlib", "platstdlib", "purelib", "platlib")
+    installed = [os.path.realpath(places[kind]) for kind in kinds]
+    inside = path.startswith(os.path.realpath(os.getcwd()) + os.sep)
+    return inside and not any(path.startswith(root + os.sep) for root in installed)
+
+
+def locate(module):
+    """Where a module's source is, found without running it: groundhog's modules as this
+    process imports them, any other by searching the path."""
+    parts = module.split(".")
+    try:
+        if parts[0] == "groundhog":
+            return importlib.util.find_spec(module)
+        found = importlib.machinery.PathFinder.find_spec(parts[0])
+        for depth in range(2, len(parts) + 1):
+            if not found or not found.submodule_search_locations:
+                return None
+            within = list(found.submodule_search_locations)
+            found = importlib.machinery.PathFinder.find_spec(".".join(parts[:depth]), within)
+        return found
+    except (ImportError, ValueError):
+        return None
+
+
+def module_closure(name=None, script=None):
+    """The source files of a system: the module or script it starts from, and every groundhog
+    module it imports. A system of the user's own also covers the user's modules it imports."""
+    mine = script is not None or name.partition(".")[0] != "groundhog"
     found = {}
-    todo = [name]
-    while todo:
-        module = todo.pop()
-        if module in found or not module.startswith("groundhog"):
-            continue
-        try:
-            module_spec = importlib.util.find_spec(module)
-        except (ImportError, ValueError):
-            continue
-        if not module_spec or not (module_spec.origin or "").endswith(".py"):
-            continue
-        found[module] = module_spec.origin
-        package = module if module_spec.submodule_search_locations else module.rpartition(".")[0]
-        tree = ast.parse(Path(module_spec.origin).read_text())
+    todo = []
+
+    def follow(origin, package):
+        tree = ast.parse(Path(origin).read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
                 base = (
@@ -369,6 +400,34 @@ def module_closure(name):
                 todo.extend(f"{base}.{alias.name}" for alias in node.names)
             elif isinstance(node, ast.Import):
                 todo.extend(alias.name for alias in node.names)
+
+    # Imports resolve as the system would resolve them: from the current directory, and
+    # from a script's own directory.
+    search = [os.getcwd()] + ([os.path.dirname(os.path.abspath(script))] if script else [])
+    sys.path[:0] = search
+    try:
+        if script:
+            found["__main__"] = os.path.abspath(script)
+            follow(script, "")
+        else:
+            todo.append(name)
+        while todo:
+            module = todo.pop()
+            if module in found:
+                continue
+            module_spec = locate(module)
+            origin = (module_spec.origin or "") if module_spec else ""
+            if not origin.endswith(".py"):
+                continue
+            if module.partition(".")[0] != "groundhog" and not (mine and own_code(origin)):
+                continue
+            found[module] = origin
+            package = (
+                module if module_spec.submodule_search_locations else module.rpartition(".")[0]
+            )
+            follow(origin, package)
+    finally:
+        del sys.path[: len(search)]
     covered = {str(PACKAGE / name) for name in spec.DEFINES}
     return sorted(path for path in found.values() if path not in covered)
 
@@ -384,8 +443,11 @@ def system_sources(system):
         words = words[1:]
     if not words:
         return []
-    if os.path.basename(words[0]).startswith("python") and len(words) > 2 and words[1] == "-m":
-        return module_closure(words[2])
+    if os.path.basename(words[0]).startswith("python") and len(words) > 1:
+        if words[1] == "-m" and len(words) > 2:
+            return module_closure(words[2])
+        if words[1].endswith(".py") and os.path.isfile(words[1]):
+            return module_closure(script=words[1])
     program = words[0] if os.path.sep in words[0] else shutil.which(words[0])
     return [program] if program and os.path.isfile(program) else []
 
@@ -396,7 +458,7 @@ def system_weights(sources):
     for source in sources:
         if not source.endswith(".py") or not source.startswith(str(PACKAGE)):
             continue
-        tree = ast.parse(Path(source).read_text())
+        tree = ast.parse(Path(source).read_text(encoding="utf-8"))
         for node in tree.body:
             if isinstance(node, ast.Assign) and any(
                 isinstance(t, ast.Name) and t.id == "WEIGHTS" for t in node.targets
@@ -443,6 +505,11 @@ def libraries_loaded():
 SETTINGS = ("GROUNDHOG_",)
 SECRETS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL")
 PLUMBING = ("PATH", "HOME", "TMPDIR", "USER", "SHELL", "TERM", "LANG", "PWD")
+# What a process needs to start on Windows.
+WINDOWS = (
+    "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT",
+    "TEMP", "TMP", "USERPROFILE", "APPDATA", "LOCALAPPDATA",
+)
 
 
 def child_environment(environ):
@@ -451,6 +518,7 @@ def child_environment(environ):
         name: value
         for name, value in environ.items()
         if name in PLUMBING
+        or name.upper() in WINDOWS
         or name.startswith("LC_")
         or name.startswith(SETTINGS)
         or any(mark in name.upper() for mark in SECRETS)
@@ -469,16 +537,50 @@ def settings_of(environ):
     }
 
 
+def summary(rows):
+    """One line for the whole run: savings pooled by baseline cost, and the pairs it failed."""
+    control = sum(r["control_tokens"] for r in rows)
+    gross = sum(r["saved"] * r["control_tokens"] for r in rows) / control if control else 0.0
+    earned = sum(r["earned"] * r["control_tokens"] for r in rows) / control if control else 0.0
+    failed = sum(r["gate"] == "FAIL" for r in rows)
+    writes = sum(r["wrong_writes"] for r in rows)
+    return (
+        f"  overall: {gross:.1%} gross, {earned:.1%} earned, a wrong write on {failed} of "
+        f"{len(rows)} pairs ({writes} wrong writes in all)"
+    )
+
+
+GUIDE = "https://github.com/hardy30894/groundhog-benchmark/blob/main/docs/writing-a-cache.md"
+
+EXAMPLES = f"""examples:
+  groundhog --system lexcache --limit 10
+  groundhog --system py:mycache:MyCache --out runs/mycache.json
+  groundhog --system "cmd:./mycache --listen SYSTEM_PORT --model http://127.0.0.1:MODEL_PORT"
+
+writing a cache: {GUIDE}"""
+
+
 def build():
-    parser = argparse.ArgumentParser(prog="python -m groundhog.run")
+    parser = argparse.ArgumentParser(
+        prog="groundhog",
+        description="Runs a cache on the Groundhog benchmark and scores what it saved and\n"
+        "what it did that nobody asked for.",
+        epilog=EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--system",
         default="control",
-        help=f"one of {', '.join(['control', *SYSTEMS])}; py:<module>:<Class>; "
-        "or cmd:<shell command> for a proxy in another process",
+        help=f"one of {', '.join(['control', *SYSTEMS])}; py:<module>:<Class> for a cache "
+        "written in Python; or cmd:<command> for a cache in another process, with "
+        "SYSTEM_PORT, MODEL_PORT and CELL replaced in the command",
     )
-    parser.add_argument("--families", default=",".join(FAMILIES))
-    parser.add_argument("--domains", default=",".join(DOMAINS))
+    parser.add_argument(
+        "--families", default=",".join(FAMILIES), help=f"comma-separated: {', '.join(FAMILIES)}"
+    )
+    parser.add_argument(
+        "--domains", default=",".join(DOMAINS), help=f"comma-separated: {', '.join(DOMAINS)}"
+    )
     parser.add_argument(
         "--limit",
         type=int,
@@ -493,7 +595,8 @@ def build():
     parser.add_argument(
         "--control",
         default=None,
-        help="a baseline file to share across systems: written if absent, reused if present",
+        help="a baseline file to share across runs: written if absent, reused if present; "
+        "reuse it only with the same --wire and --limit",
     )
     parser.add_argument("--ports", default="auto", help="model,system ports; auto picks free ones")
     parser.add_argument("--label", default=None, help="a short name for the result")
@@ -503,6 +606,10 @@ def build():
 
 def main():
     args = build().parse_args()
+    families, domains = args.families.split(","), tuple(args.domains.split(","))
+    unknown = [f for f in families if f not in FAMILIES] + [d for d in domains if d not in DOMAINS]
+    if unknown:
+        raise SystemExit(f"unknown family or domain: {', '.join(unknown)}; see groundhog --help")
     system = resolve(args.system)
     if system != "control" and not system.startswith(("py:", "cmd:")):
         raise SystemExit(f"unknown system {args.system!r}")
@@ -523,10 +630,10 @@ def main():
     rows = evaluate(
         start,
         model,
-        args.families.split(","),
+        families,
         args.pace,
         wire=args.wire,
-        domains=tuple(args.domains.split(",")),
+        domains=domains,
         limit=args.limit,
         control_in=reuse,
         control_out=fresh,
@@ -561,6 +668,7 @@ def main():
     gated = [r["family"] for r in rows if r["gate"] == "FAIL"]
     if gated:
         print(f"\n  wrong writes on: {', '.join(gated)}. Savings there do not count.")
+    print("\n" + summary(rows))
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         beside = f"{args.out}.partial"

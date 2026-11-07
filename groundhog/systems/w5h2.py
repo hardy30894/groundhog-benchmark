@@ -23,11 +23,10 @@ from pathlib import Path
 from .. import data
 from .proxy import ProxyHandler, forward, opening_of, refuse_unknown_knobs, zero_usage
 
-ROOT = Path(__file__).resolve().parents[2]
-MODELS = ROOT / "models" / "w5h2"
+MODELS = Path("models").resolve() / "w5h2"
 SHIMS = Path(__file__).resolve().parent / "shims"
 UPSTREAM = os.environ.get(
-    "GROUNDHOG_W5H2_UPSTREAM", str(ROOT / "third_party" / "w5h2-intent-cache")
+    "GROUNDHOG_W5H2_UPSTREAM", str(Path("third_party/w5h2-intent-cache").resolve())
 )
 WEIGHTS = ("w5h2",)
 

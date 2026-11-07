@@ -8,6 +8,8 @@ and every result file carries it.
 import hashlib
 from pathlib import Path
 
+from .data import BENCHMARK
+
 VERSION = "2.0"
 
 HERE = Path(__file__).resolve().parent
@@ -25,7 +27,7 @@ def digest():
     parts = hashlib.sha256()
     for name in DEFINES:
         parts.update(hashlib.sha256((HERE / name).read_bytes()).digest())
-    parts.update(hashlib.sha256((HERE.parent / "data" / "groundhog.jsonl").read_bytes()).digest())
+    parts.update(hashlib.sha256(BENCHMARK.read_bytes()).digest())
     return parts.hexdigest()[:16]
 
 

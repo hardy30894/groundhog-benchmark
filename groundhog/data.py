@@ -5,7 +5,17 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-DATA = Path(__file__).resolve().parent.parent / "data"
+
+def _locate():
+    """The dataset directory: inside the package once installed, data/ in a checkout."""
+    here = Path(__file__).resolve().parent
+    for candidate in (here / "dataset", here.parent / "data"):
+        if (candidate / "groundhog.jsonl").exists():
+            return candidate
+    raise FileNotFoundError("the dataset is missing: reinstall groundhog-bench or check out data/")
+
+
+DATA = _locate()
 BENCHMARK = DATA / "groundhog.jsonl"
 
 

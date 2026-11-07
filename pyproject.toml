@@ -15,8 +15,21 @@ dependencies = []
 test = ["pytest>=8"]
 figures = ["matplotlib>=3.8"]
 
-[tool.setuptools.packages.find]
-include = ["groundhog*"]
+[project.urls]
+Repository = "https://github.com/hardy30894/groundhog-benchmark"
+Guide = "https://github.com/hardy30894/groundhog-benchmark/blob/main/docs/writing-a-cache.md"
+
+[project.scripts]
+groundhog = "groundhog.run:main"
+
+[tool.setuptools]
+packages = ["groundhog", "groundhog.systems", "groundhog.systems.shims", "groundhog.dataset"]
+
+[tool.setuptools.package-dir]
+"groundhog.dataset" = "data"
+
+[tool.setuptools.package-data]
+"groundhog.dataset" = ["*.jsonl", "train/*.jsonl", "SHA256SUMS"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

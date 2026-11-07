@@ -1,0 +1,5 @@
+# Checked out byte for byte on every platform: the dataset checksums and the benchmark's
+# digest are computed over these bytes.
+* text=auto eol=lf
+data/** -text
+results/** -text
