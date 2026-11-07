@@ -1,0 +1,55 @@
+name: reproduce
+
+on:
+  workflow_dispatch:
+
+jobs:
+  readme:
+    name: every command in the README
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e . pytest matplotlib
+      - run: pytest -q
+      - name: quick start
+        run: time python -m groundhog.run --system lexcache --limit 10 --out runs/quick.json
+      - run: python -m groundhog.run --system control --families lookup,horizon --domains code
+      - name: the README's examples
+        run: python .github/scripts/readme_examples.py && python snippet.py | head -3
+      - name: a cache written in Python
+        run: python -m groundhog.run --system py:mycache:ExactCache --limit 10 --out runs/exact.json
+      - name: a cache in another process
+        run: python -m groundhog.run --system "cmd:python cmdcache.py SYSTEM_PORT http://127.0.0.1:MODEL_PORT" --limit 10 --families lookup,reversal --domains support
+      - name: the paper's tables
+        run: python scripts/tables.py | diff - results/TABLES.md
+      - run: python scripts/figures.py
+      - run: python scripts/reproduce.py --list
+
+  reproduce:
+    name: ${{ matrix.configuration }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [control, lexcache/threshold-0.8, agenticcache/k1, agenticcache/k2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python scripts/reproduce.py ${{ matrix.configuration }}
+
+  gptcache:
+    name: gptcache/threshold-0.85
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e . -r requirements/gptcache.txt
+      - run: python scripts/reproduce.py gptcache/threshold-0.85
