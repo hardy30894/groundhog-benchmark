@@ -1,0 +1,11 @@
+# The classifier is the authors' code, which is not a package. Check it out beside this repository:
+#   git clone https://github.com/nabaos/w5h2-intent-cache third_party/w5h2-intent-cache
+#   git -C third_party/w5h2-intent-cache checkout 835c6d75810324741fd681afb4ce943aad235aca
+setfit==1.2.0
+sentence-transformers==6.1.0
+transformers==5.19.0
+tokenizers==0.23.2
+datasets==5.1.0
+numpy==2.2.6
+scikit-learn==1.7.2
+torch==2.13.0

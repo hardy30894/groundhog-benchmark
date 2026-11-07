@@ -1,0 +1,6 @@
+gptcache==0.1.44
+onnxruntime==1.28.0
+transformers==5.3.0
+tokenizers==0.22.2
+numpy==1.26.4
+torch==2.13.0
