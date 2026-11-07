@@ -104,8 +104,8 @@ cached rate.
 | GenCache | 93.8% | 22.2% | 5/33 | 257 | 859 | 412 | 1,053 |
 
 Earned can exceed gross: LexCache's wrong runs cost more, in total, than the same instances
-cost without a cache, so leaving them out raises the rate. GenCache's figures leave out the tokens of the model that
-writes its programs; counted, they are 63.4% gross and -8.2% earned.
+cost without a cache, so leaving them out raises the rate. GenCache's figures leave out the
+tokens of the model that writes its programs; counted, they are 63.4% gross and -8.2% earned.
 
 <p align="center"><img src="docs/figures/families.svg" alt="Earned savings per family and system" width="860"></p>
 
@@ -281,8 +281,9 @@ python scripts/tables.py
 
 recomputes Tables 1, 3 and 5 to 15 of the paper from [`results/`](results). Each result file
 records the version and digest of the benchmark that produced it, the system and its
-settings, and the libraries it ran with. [`scripts/paper.py`](scripts/paper.py) maps every
-configuration in the paper to its file.
+settings, and the libraries it ran with; [`results/README.md`](results/README.md) explains
+the format. [`scripts/paper.py`](scripts/paper.py) maps every configuration in the paper to
+its file.
 
 ### Re-run the systems
 
@@ -301,7 +302,7 @@ runs recorded, and two of them train a classifier first:
 |---|---|---|
 | LexCache, AgenticCache | none | minutes |
 | GPTCache | `pip install -r requirements/gptcache.txt` | minutes |
-| vCache | `pip install -r requirements/vcache.txt` | minutes |
+| vCache | `pip install -r requirements/vcache.txt`; its own dependencies include vllm, a large install | minutes |
 | W5H2 | `pip install -r requirements/w5h2.txt`, the authors' checkout (see the file), then `python scripts/train_w5h2.py` | about 20 minutes, 5 of them training |
 | AgentReuse | `pip install -r requirements/agentreuse.txt`, then `python scripts/train_agentreuse.py` and, for one configuration, `--labels semantic` | about an hour, half of it training; training needs 16 GB of memory |
 | GenCache | `pip install -r requirements/gencache.txt` and `OPENROUTER_API_KEY` | 1 to 4 hours, $1 to $2 of API charges |
@@ -344,6 +345,6 @@ tests/
 ## License
 
 Apache 2.0, see [LICENSE](LICENSE). The systems run third-party code that keeps its own
-license and is never redistributed here: GPTCache (MIT), vCache (installed unmodified from
-its repository), the W5H2 authors' classifier code (MIT, checked out separately), and the
-pretrained models named in [`docs/systems.md`](docs/systems.md).
+license and is never redistributed here: GPTCache (MIT), vCache (CC BY-NC-ND 3.0, installed
+unmodified from its repository), the W5H2 authors' classifier code (MIT, checked out
+separately), and the pretrained models named in [`docs/systems.md`](docs/systems.md).

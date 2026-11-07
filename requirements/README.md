@@ -12,7 +12,7 @@ pip install -e . -r requirements/gptcache.txt
 | system | file | Python the published run used |
 |---|---|---|
 | GPTCache | `gptcache.txt` | 3.12 |
-| vCache | `vcache.txt` | 3.12 |
+| vCache | `vcache.txt`; vCache's own dependencies include vllm, a large install | 3.12 |
 | W5H2 | `w5h2.txt`, plus the authors' checkout (see the file) | 3.10 |
 | AgentReuse | `agentreuse.txt` | 3.12 |
 | GenCache | `gencache.txt`, plus `OPENROUTER_API_KEY` | 3.12 |
