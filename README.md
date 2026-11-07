@@ -138,8 +138,21 @@ class ExactCache(LocalServer):
 ```
 
 ```bash
-groundhog --system py:examples.exact_cache:ExactCache --limit 10
+groundhog --system py:examples.exact_cache:ExactCache --families mixed,chain --domains support
 ```
+
+```
+  family             gate     wrong-writes wrong-reads wrong-answers  missed  saved  earned net-served first-free  steps  prefix
+  support/mixed      pass                0           0             0       0     4%      4%         23         13    2.2     0.2
+  support/chain      pass                0           0             0       0     1%      1%          6         63    3.0     0.1
+
+  overall: 2.7% gross, 2.7% earned, a wrong write on 0 of 2 pairs (0 wrong writes in all)
+```
+
+Requests repeat word for word in mixed and chain, a handful of times elsewhere, and never in
+the first ten instances of a pair, so this is where an exact match finds anything to serve. It
+is safe and rarely hits. Matching more loosely is where the savings are, and where the wrong
+writes come from.
 
 Copy it next to your code and change `do_POST`. `--system py:mycache:MyCache` loads the class
 `MyCache` from `mycache.py` in the current directory.
