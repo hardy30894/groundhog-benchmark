@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 330" width="860" height="330" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <rect width="860" height="330" fill="#ffffff"/>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#52606d"/>
+    </marker>
+    <marker id="arrow-light" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa5b1"/>
+    </marker>
+  </defs>
+
+  <text x="30" y="34" font-size="16" font-weight="600" fill="#1f2933">One family-domain pair, two passes over the same 100 instances</text>
+
+  <!-- dataset -->
+  <rect x="30" y="66" width="150" height="70" rx="8" fill="#f5f7fa" stroke="#cbd2d9"/>
+  <text x="105" y="94" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">dataset</text>
+  <text x="105" y="114" font-size="11" fill="#52606d" text-anchor="middle">request + spec</text>
+  <text x="105" y="128" font-size="11" fill="#52606d" text-anchor="middle">+ hidden state</text>
+
+  <!-- agent -->
+  <rect x="235" y="66" width="150" height="70" rx="8" fill="#ffffff" stroke="#2f5d8c" stroke-width="1.5"/>
+  <text x="310" y="94" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">agent</text>
+  <text x="310" y="114" font-size="11" fill="#52606d" text-anchor="middle">same loop for</text>
+  <text x="310" y="128" font-size="11" fill="#52606d" text-anchor="middle">every system</text>
+
+  <!-- system under test -->
+  <rect x="455" y="66" width="170" height="70" rx="8" fill="#e8eff7" stroke="#2f5d8c" stroke-width="1.5"/>
+  <text x="540" y="94" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">cache under test</text>
+  <text x="540" y="114" font-size="11" fill="#52606d" text-anchor="middle">an HTTP proxy; serves</text>
+  <text x="540" y="128" font-size="11" fill="#52606d" text-anchor="middle">or forwards each turn</text>
+
+  <!-- model -->
+  <rect x="690" y="66" width="140" height="70" rx="8" fill="#ffffff" stroke="#2f5d8c" stroke-width="1.5"/>
+  <text x="760" y="94" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">model + meter</text>
+  <text x="760" y="114" font-size="11" fill="#52606d" text-anchor="middle">written policy;</text>
+  <text x="760" y="128" font-size="11" fill="#52606d" text-anchor="middle">counts every token</text>
+
+  <!-- world -->
+  <rect x="235" y="196" width="150" height="62" rx="8" fill="#f5f7fa" stroke="#cbd2d9"/>
+  <text x="310" y="222" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">world</text>
+  <text x="310" y="242" font-size="11" fill="#52606d" text-anchor="middle">tools, stateless</text>
+
+  <!-- scorer -->
+  <rect x="455" y="196" width="375" height="62" rx="8" fill="#fdf2f1" stroke="#c0392b" stroke-width="1.2"/>
+  <text x="642" y="220" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">scorer</text>
+  <text x="642" y="240" font-size="11" fill="#52606d" text-anchor="middle">an unrequested state-changing call is a wrong write and fails the pair;</text>
+  <text x="642" y="254" font-size="11" fill="#52606d" text-anchor="middle">savings count only on instances that came out right</text>
+
+  <!-- arrows: data to agent -->
+  <line x1="180" y1="101" x2="232" y2="101" stroke="#52606d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <!-- agent to cache to model -->
+  <line x1="385" y1="94" x2="452" y2="94" stroke="#52606d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="452" y1="112" x2="388" y2="112" stroke="#52606d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="625" y1="94" x2="687" y2="94" stroke="#52606d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="687" y1="112" x2="628" y2="112" stroke="#52606d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <!-- baseline pass straight to the model -->
+  <path d="M 310 66 L 310 52 L 760 52 L 760 63" fill="none" stroke="#9aa5b1" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrow-light)"/>
+  <text x="535" y="46" font-size="11" fill="#7b8794" text-anchor="middle">baseline pass: no cache in the path</text>
+  <!-- agent to world -->
+  <line x1="300" y1="136" x2="300" y2="193" stroke="#52606d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="320" y1="193" x2="320" y2="139" stroke="#52606d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="292" y="170" font-size="11" fill="#52606d" text-anchor="end">tool calls</text>
+  <text x="330" y="170" font-size="11" fill="#52606d">results</text>
+  <!-- to scorer -->
+  <path d="M 385 128 L 420 128 L 420 227 L 452 227" fill="none" stroke="#52606d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="426" y="182" font-size="11" fill="#52606d">calls, answer</text>
+  <line x1="760" y1="136" x2="760" y2="193" stroke="#52606d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="768" y="170" font-size="11" fill="#52606d">tokens</text>
+
+  <text x="30" y="300" font-size="11" fill="#7b8794">The hidden state reaches the world and the model through the harness, never through a request, so no cache can read it.</text>
+</svg>
