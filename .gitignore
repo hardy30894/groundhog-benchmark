@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+
+# Trained classifiers and third-party checkouts are built locally, never committed.
+models/
+third_party/
+
+# Scratch output of local runs.
+runs/
+*.partial
+build/
+dist/
