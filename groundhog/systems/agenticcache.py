@@ -18,7 +18,7 @@ Settings, all optional:
     GROUNDHOG_AGENTICCACHE_METADATA   counters, or fields to admit result fields to the state
     GROUNDHOG_AGENTICCACHE_BINDER     provenance or type: how a step's arguments are bound
     GROUNDHOG_AGENTICCACHE_WALK       ranked or argmax: how a candidate step is chosen
-    GROUNDHOG_AGENTICCACHE_SEED       seed for the check delays and for breaking ties; 0
+    GROUNDHOG_AGENTICCACHE_SEED       seed for the check delays and for breaking ties; v0
     GROUNDHOG_AGENTICCACHE_LOG        a file to log every decision to
 """
 
@@ -85,7 +85,7 @@ def settings(environ):
         "metadata": chosen["metadata"],
         "binder": chosen["binder"],
         "walk": chosen["walk"],
-        "seed": environ.get("GROUNDHOG_AGENTICCACHE_SEED", "0"),
+        "seed": environ.get("GROUNDHOG_AGENTICCACHE_SEED", "v0"),
         "log": environ.get("GROUNDHOG_AGENTICCACHE_LOG", ""),
     }
 
