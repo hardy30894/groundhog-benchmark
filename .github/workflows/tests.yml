@@ -1,0 +1,24 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install pytest ruff==0.15.12
+      - name: lint
+        run: ruff check groundhog scripts tests
+      - name: tests
+        run: pytest -q
+      - name: a short run through a cache
+        run: python -m groundhog.run --system lexcache --limit 6 --families lookup,reversal,horizon --domains support --out /tmp/smoke.json
