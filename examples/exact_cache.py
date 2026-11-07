@@ -1,6 +1,6 @@
 """An exact-match cache, written as a Python class the runner starts for each pair.
 
-    groundhog --system py:examples.exact_cache:ExactCache --limit 10
+    groundhog --system py:examples.exact_cache:ExactCache --families mixed,chain --domains support
 
 It answers the opening turn of a conversation it has seen before, word for word, with the
 reply the model gave then, and passes every other request to the model.
