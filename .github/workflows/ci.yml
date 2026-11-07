@@ -1,0 +1,72 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff==0.15.12
+      - run: ruff check groundhog scripts tests examples
+
+  test:
+    name: tests and examples, ${{ matrix.os }}, Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          - os: macos-latest
+            python: "3.12"
+          - os: windows-latest
+            python: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e ".[test]"
+      - run: pytest -q
+      - name: the example cache written in Python
+        run: groundhog --system py:examples.exact_cache:ExactCache --limit 3 --domains support --control baseline.json
+      - name: the example cache in another process, on both wires
+        run: |
+          groundhog --system "cmd:python examples/standalone_cache.py SYSTEM_PORT http://127.0.0.1:MODEL_PORT" --limit 3 --domains support --control baseline.json
+          groundhog --system "cmd:python examples/standalone_cache.py SYSTEM_PORT http://127.0.0.1:MODEL_PORT" --limit 3 --domains support --wire openai
+
+  package:
+    name: the built package, installed clean
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build
+      - run: python -m build
+      - name: install the wheel and the source distribution into fresh environments
+        run: |
+          python -m venv "$RUNNER_TEMP/wheel"
+          "$RUNNER_TEMP/wheel/bin/pip" install dist/*.whl
+          python -m venv "$RUNNER_TEMP/sdist"
+          "$RUNNER_TEMP/sdist/bin/pip" install dist/*.tar.gz
+      - name: run the benchmark from an empty directory
+        run: |
+          mkdir "$RUNNER_TEMP/empty" && cd "$RUNNER_TEMP/empty"
+          for env in wheel sdist; do
+            "$RUNNER_TEMP/$env/bin/groundhog" --help > /dev/null
+            "$RUNNER_TEMP/$env/bin/python" -c "from groundhog import data; assert 'site-packages' in str(data.BENCHMARK), data.BENCHMARK"
+          done
+          "$RUNNER_TEMP/wheel/bin/groundhog" --system lexcache --limit 3 --out result.json
+          "$RUNNER_TEMP/wheel/bin/python" -c "import json; rows = json.load(open('result.json'))['rows']; assert len(rows) == 33, len(rows)"

@@ -4,27 +4,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  readme:
-    name: every command in the README
+  tables:
+    name: the paper's tables and figures
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e . pytest matplotlib
-      - run: pytest -q
-      - name: quick start
-        run: time python -m groundhog.run --system lexcache --limit 10 --out runs/quick.json
-      - run: python -m groundhog.run --system control --families lookup,horizon --domains code
-      - name: the README's examples
-        run: python .github/scripts/readme_examples.py && python snippet.py | head -3
-      - name: a cache written in Python
-        run: python -m groundhog.run --system py:mycache:ExactCache --limit 10 --out runs/exact.json
-      - name: a cache in another process
-        run: python -m groundhog.run --system "cmd:python cmdcache.py SYSTEM_PORT http://127.0.0.1:MODEL_PORT" --limit 10 --families lookup,reversal --domains support
-      - name: the paper's tables
-        run: python scripts/tables.py | diff - results/TABLES.md
+      - run: pip install -e ".[figures]"
+      - run: python scripts/tables.py | diff - results/TABLES.md
       - run: python scripts/figures.py
       - run: python scripts/reproduce.py --list
 
