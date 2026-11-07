@@ -39,11 +39,20 @@ jobs:
       - run: pip install -e ".[test]"
       - run: pytest -q
       - name: the example cache written in Python
-        run: groundhog --system py:examples.exact_cache:ExactCache --limit 3 --domains support --control baseline.json
+        run: groundhog --system py:examples.exact_cache:ExactCache --families mixed,chain --domains support --control baseline.json --out runs/py.json
       - name: the example cache in another process, on both wires
         run: |
-          groundhog --system "cmd:python examples/standalone_cache.py SYSTEM_PORT http://127.0.0.1:MODEL_PORT" --limit 3 --domains support --control baseline.json
-          groundhog --system "cmd:python examples/standalone_cache.py SYSTEM_PORT http://127.0.0.1:MODEL_PORT" --limit 3 --domains support --wire openai
+          groundhog --system "cmd:python examples/standalone_cache.py SYSTEM_PORT http://127.0.0.1:MODEL_PORT" --families mixed,chain --domains support --control baseline.json --out runs/cmd.json
+          groundhog --system "cmd:python examples/standalone_cache.py SYSTEM_PORT http://127.0.0.1:MODEL_PORT" --families mixed,chain --domains support --wire openai --out runs/openai.json
+      - name: the two examples serve the same turns
+        run: |
+          python - <<'EOF'
+          import json
+          py, cmd, openai = (json.load(open(f"runs/{name}.json"))["rows"] for name in ("py", "cmd", "openai"))
+          fields = ("gate", "wrong_writes", "wrong_reads", "wrong_answers", "saved", "earned", "served_turns")
+          assert all(row["served_turns"] > 0 for row in py + openai)
+          assert [[row[f] for f in fields] for row in py] == [[row[f] for f in fields] for row in cmd]
+          EOF
 
   package:
     name: the built package, installed clean
