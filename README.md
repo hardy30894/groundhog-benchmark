@@ -6,7 +6,7 @@
 
 *Same task, hundredth time. What did the cache save, and what did it do that nobody asked for?*
 
-[![a wrong write fails the pair](https://img.shields.io/badge/wrong%20write-fails%20the%20pair-B3261E?style=flat-square)](#how-a-run-is-scored) [![metered at the model](https://img.shields.io/badge/cost-metered%20at%20the%20model-2E7D32?style=flat-square)](#how-a-run-is-scored) [![3,300 instances](https://img.shields.io/badge/dataset-3%2C300%20instances-3557C4?style=flat-square)](#the-dataset) [![two wires](https://img.shields.io/badge/wires-anthropic%20%2B%20openai-8A2BE2?style=flat-square)](#measure-your-own-cache) [![Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-6A6F7A?style=flat-square)](LICENSE)
+[![a wrong write fails the pair](https://img.shields.io/badge/wrong%20write-fails%20the%20pair-B3261E?style=flat-square)](#how-a-run-is-scored) [![metered at the model](https://img.shields.io/badge/cost-metered%20at%20the%20model-2E7D32?style=flat-square)](#how-a-run-is-scored) [![3,300 instances](https://img.shields.io/badge/dataset-3%2C300%20instances-3557C4?style=flat-square)](#the-dataset) [![two wires](https://img.shields.io/badge/wires-anthropic%20%2B%20openai-8A2BE2?style=flat-square)](#evaluate-your-own-cache) [![Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-6A6F7A?style=flat-square)](LICENSE)
 
 </div>
 
@@ -29,14 +29,175 @@ Seven systems on 3,300 agent tasks:
 
 ## Contents
 
+- [Quick start](#quick-start)
+- [Evaluate your own cache](#evaluate-your-own-cache)
 - [What Groundhog measures](#what-groundhog-measures)
 - [Results](#results)
-- [Quick start](#quick-start)
 - [The dataset](#the-dataset)
-- [Measure your own cache](#measure-your-own-cache)
 - [Reproduce the paper](#reproduce-the-paper)
 - [Repository layout](#repository-layout)
 - [License](#license)
+
+## Quick start
+
+Groundhog needs Python 3.10 or newer and nothing else. The harness, the agent, the model it
+calls and the dataset are all in the package.
+
+```bash
+git clone https://github.com/hardy30894/groundhog-benchmark.git
+cd groundhog-benchmark
+pip install -e .
+groundhog --system lexcache --limit 10
+```
+
+`--limit 10` runs the first 10 instances of each of the 33 family-domain pairs, which takes
+about two minutes. Without it a run covers all 3,300 instances, in about eight minutes. To use
+Groundhog from your own project without a checkout, install it with
+`pip install git+https://github.com/hardy30894/groundhog-benchmark.git`; the dataset is
+installed with it.
+
+A full run prints a row for each pair, the pairs with a wrong write, and an overall line. For
+LexCache, shortened:
+
+```
+  family             gate     wrong-writes wrong-reads wrong-answers  missed  saved  earned net-served first-free  steps  prefix
+  support/lookup     pass                0           0             0       0    35%     35%         96          5    2.0     1.0
+  support/chain      pass                0           0             0       0    19%     19%         99          2    3.0     1.0
+  support/reversal   pass                0           0             0       0    37%     37%         95          2    1.8     0.9
+  support/horizon    FAIL              276        1089            99     234    -5%      0%         99          2   14.8     1.0
+  support/standing   FAIL               50           0            50      50    35%     17%         99          2    2.0     1.0
+  ...
+
+  wrong writes on: support/horizon, support/standing, code/horizon, code/standing, data/horizon, data/standing. Savings there do not count.
+
+  overall: 9.3% gross, 9.9% earned, a wrong write on 6 of 33 pairs (924 wrong writes in all)
+```
+
+LexCache saves where a repeated request means a repeated job. On standing it keeps serving
+the action it learned after the rule behind that action has changed, and on horizon it
+replays steps of a procedure whose branches depend on what the tools return. The columns are
+explained in [the guide](docs/writing-a-cache.md#reading-the-result).
+
+```bash
+groundhog --system control --families lookup,horizon --domains code
+groundhog --system agenticcache --out runs/agenticcache.json
+```
+
+`--system` takes `control` for no cache, the name of one of the seven reference systems
+(`lexcache`, `gptcache`, `vcache`, `w5h2`, `agentreuse`, `agenticcache`, `gencache`), or your
+own cache, as below. All but LexCache and AgenticCache need
+[their own dependencies](#re-run-the-systems). `groundhog --help` lists every option.
+
+To run the tests:
+
+```bash
+pip install -e ".[test]"
+pytest
+```
+
+## Evaluate your own cache
+
+Groundhog measures any cache that can sit between an agent and its model as an HTTP proxy.
+For each family-domain pair the harness starts your cache, sends it the agent's requests,
+tells it the model's address, and scores what the agent ends up doing.
+
+### 1. Start from the example
+
+[`examples/exact_cache.py`](examples/exact_cache.py) is a complete cache. It answers the
+opening turn of a conversation it has seen before, word for word, with the reply the model
+gave then, and forwards every other request to the model:
+
+```python
+import json
+from http.server import ThreadingHTTPServer
+
+from groundhog.systems.proxy import ProxyHandler, forward, opening_of, zero_usage
+
+
+class Handler(ProxyHandler):
+    def do_POST(self):
+        raw = self.rfile.read(int(self.headers["Content-Length"]))
+        body = json.loads(raw)
+        first_turn = not any(m["role"] == "assistant" for m in body["messages"])
+        key = opening_of(body)
+        if first_turn and key in self.server.stored:
+            out = json.loads(json.dumps(self.server.stored[key]))
+            zero_usage(out)
+            return self.reply(out)
+        out = forward(self.server.upstream, raw, self.path)
+        if first_turn:
+            self.server.stored[key] = out
+        self.reply(out)
+
+
+class ExactCache(ThreadingHTTPServer):
+    def __init__(self, port, upstream):
+        super().__init__(("127.0.0.1", port), Handler)
+        self.upstream = upstream
+        self.stored = {}
+```
+
+```bash
+groundhog --system py:examples.exact_cache:ExactCache --limit 10
+```
+
+Copy it next to your code and change `do_POST`. `--system py:mycache:MyCache` loads the class
+`MyCache` from `mycache.py` in the current directory.
+
+### 2. Follow the contract
+
+- A request arrives in the Anthropic messages format, or as OpenAI chat completions with
+  `--wire openai`, and carries the whole conversation: the agent's instructions, its tools
+  and the messages so far.
+- Every tool carries the `readOnlyHint` annotation that tool servers publish under the Model
+  Context Protocol: `true` for a read, `false` for a call that changes state.
+- Forward a request unchanged to the model, or answer it yourself in the same format. A reply
+  you answer yourself must report zero usage.
+- The agent executes every tool call you return. A call nobody asked for is a real action in
+  the simulated world, and one that changes state fails the pair.
+- Cost is read from the model's meter, never from your replies. Anything your cache sends the
+  model, including requests on its own behalf, is charged to it.
+
+[`docs/writing-a-cache.md`](docs/writing-a-cache.md) has the whole contract: a real request
+and reply, when your cache is started and stopped, and how its settings are recorded.
+
+### 3. Work on part of the benchmark
+
+```bash
+groundhog --system py:mycache:MyCache --families reversal,standing --domains support
+groundhog --system py:mycache:MyCache --control baseline.json
+```
+
+`--families` and `--domains` run part of the benchmark, and `--limit N` the first N instances
+of each pair. In drift, quiet and standing the world changes at instance 50, so a limit below
+51 never reaches the change. `--control baseline.json` saves the baseline pass the first time
+and reuses it after, so every later run makes only the pass through your cache.
+
+### 4. Run the benchmark and read the result
+
+```bash
+groundhog --system py:mycache:MyCache --out runs/mycache.json
+```
+
+The overall line compares directly with the [reference results](#results): gross and earned
+savings pooled by baseline cost, and the pairs with a wrong write. A cache is safe on a kind
+of work only where it passes the gate, and the families it fails say which question in
+[the family table](#what-groundhog-measures) it gets wrong. The result file holds every row,
+the benchmark's version and digest, your `GROUNDHOG_` settings, a digest of your cache's code
+and the libraries it loaded, so it always says what produced it.
+
+### A cache in another process or language
+
+```bash
+groundhog --system "cmd:python examples/standalone_cache.py SYSTEM_PORT http://127.0.0.1:MODEL_PORT"
+```
+
+[`examples/standalone_cache.py`](examples/standalone_cache.py) is the same cache as a
+standalone server that uses only the standard library, and a template for a cache in any
+language. The harness runs the command for each pair after replacing `SYSTEM_PORT` with the
+port to listen on, `MODEL_PORT` with the model's port and `CELL` with the pair's name, which
+keeps the state of one pair apart from the next. Settings go in environment variables
+starting with `GROUNDHOG_`; the result file records them.
 
 ## What Groundhog measures
 
@@ -123,41 +284,6 @@ while earned savings stay below 13%.
 Every number in the paper's tables is recomputed from the files in [`results/`](results) by
 [`scripts/tables.py`](scripts/tables.py); the output is in [`results/TABLES.md`](results/TABLES.md).
 
-## Quick start
-
-The harness and the dataset need Python 3.10 or newer and nothing else.
-
-```bash
-git clone https://github.com/hardy30894/groundhog-benchmark.git
-cd groundhog-benchmark
-python -m groundhog.run --system lexcache --limit 10
-```
-
-`--limit 10` runs the first 10 instances of each of the 33 family-domain pairs, which takes
-about two minutes. Without it the run covers all 3,300 instances, in about eight minutes.
-The output is one row per pair; `--out results.json` writes a result file with the rows and
-everything needed to identify the run.
-
-```bash
-python -m groundhog.run --system control --families lookup,horizon --domains code
-python -m groundhog.run --system agenticcache --out runs/agenticcache.json
-```
-
-`--system` takes the name of one of the seven systems, `control` for no cache,
-`py:module:Class` for a cache written in Python, or `cmd:` and a shell command for a cache in
-another process ([below](#measure-your-own-cache)).
-
-To run the tests:
-
-```bash
-pip install pytest
-pytest
-```
-
-They check the dataset files against their published checksums, that the run without a
-cache satisfies all 3,300 specifications and costs exactly what the published baseline says,
-and that the result files reproduce the paper's tables.
-
 ## The dataset
 
 The benchmark is one file, [`data/groundhog.jsonl`](data/groundhog.jsonl): 3,300 records,
@@ -209,67 +335,11 @@ for.
 ```python
 from groundhog import data
 
-for inst in data.instances("support", "reversal"):
-    print(inst["opening"], inst["effects"])
+for record in data.records("support", "reversal")[:3]:
+    print(record["request"], [call["tool"] for call in record["calls"]])
 ```
 
-## Measure your own cache
-
-A cache is an HTTP proxy between the agent and the model. It receives the agent's request
-in the Anthropic messages format (or OpenAI chat completions with `--wire openai`), and
-either answers from what it stored or forwards the request to the model and stores the reply.
-
-Two rules make the measurement honest. A reply served from the cache must carry zero usage,
-since the model was never asked. And cost is read from the model's own meter, so a cache
-cannot report itself cheaper than it was: anything it sends the model on its own behalf is
-charged to it.
-
-In Python, a cache is a `ThreadingHTTPServer` constructed with the port to listen on and the
-model's address:
-
-```python
-import json
-from http.server import ThreadingHTTPServer
-
-from groundhog.systems.proxy import ProxyHandler, forward, opening_of, zero_usage
-
-
-class Handler(ProxyHandler):
-    def do_POST(self):
-        raw = self.rfile.read(int(self.headers["Content-Length"]))
-        body = json.loads(raw)
-        first_turn = not any(m["role"] == "assistant" for m in body["messages"])
-        key = opening_of(body)
-        if first_turn and key in self.server.stored:
-            out = json.loads(json.dumps(self.server.stored[key]))
-            zero_usage(out)
-            return self.reply(out)
-        out = forward(self.server.upstream, raw, self.path)
-        if first_turn:
-            self.server.stored[key] = out
-        self.reply(out)
-
-
-class ExactCache(ThreadingHTTPServer):
-    def __init__(self, port, upstream):
-        super().__init__(("127.0.0.1", port), Handler)
-        self.upstream = upstream
-        self.stored = {}
-```
-
-```bash
-python -m groundhog.run --system py:mycache:ExactCache --out runs/exact.json
-```
-
-A cache in another process or language is started by a shell command for each pair. The
-harness replaces `MODEL_PORT`, `SYSTEM_PORT` and `CELL` (the pair's name) in the command:
-
-```bash
-python -m groundhog.run --system "cmd:./mycache --listen SYSTEM_PORT --model http://127.0.0.1:MODEL_PORT --state state/CELL.db"
-```
-
-Settings for a system go in environment variables starting with `GROUNDHOG_`; the harness
-records all of them in the result file, so a result says what configuration produced it.
+Installed with pip, the dataset is at `groundhog.data.BENCHMARK`.
 
 ## Reproduce the paper
 
@@ -311,8 +381,8 @@ The runs in [`results/`](results) were made on Linux machines with 8 CPU cores a
 
 Rerun with this code on GitHub's runners, the baseline, LexCache, AgenticCache at K = 1 and
 K = 2, and GPTCache matched their published files exactly, pair by pair.
-[`.github/workflows/reproduce.yml`](.github/workflows/reproduce.yml) makes those runs and
-checks every command in this README; start it from the repository's Actions tab. W5H2 and
+[`.github/workflows/reproduce.yml`](.github/workflows/reproduce.yml) makes those runs; start
+it from the repository's Actions tab. W5H2 and
 AgentReuse use no randomness when they run, so with the pinned versions they should match
 too. vCache decides between serving and asking the model by an unseeded random draw, and
 GenCache's programs are written by a model, so their reruns differ a little from the
@@ -329,19 +399,20 @@ The systems are described, with every choice their papers left open, in
 ## Repository layout
 
 ```
-groundhog/            the harness
+groundhog/            the benchmark
   data.py             reads the dataset
   world.py            the three domains: tools and what they return
-  model.py            the model under test and the token meter
+  model.py            the model the agent calls, and the token meter
   agent.py            the agent loop
   score.py            scoring
-  run.py              the runner: python -m groundhog.run
-  systems/            the seven caches
+  run.py              the groundhog command
+  systems/            the seven reference systems and the proxy helpers they share
 data/                 the dataset and the classifier training sets
+examples/             two example caches to start from
+docs/                 the cache contract, the datasheet, notes on the systems, figures
 results/              the paper's result files and the tables recomputed from them
 scripts/              tables, figures, classifier training and reproduction
-requirements/         pinned dependencies per system
-docs/                 datasheet, system notes and figures
+requirements/         pinned dependencies for each reference system
 tests/
 ```
 
