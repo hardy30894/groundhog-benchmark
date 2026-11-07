@@ -128,9 +128,13 @@ def starter(system, model_port, pinned=None):
                     "left by an earlier run. Move them aside or name a fresh directory."
                 )
             child = subprocess.Popen(words, env=child_environment(os.environ))
-            if not wait_for(port):
+            if not wait_for(port, child):
+                if child.poll() is not None:
+                    raise SystemExit(
+                        f"{label}: the command exited ({child.returncode}) without listening"
+                    )
                 child.kill()
-                raise SystemExit(f"nothing listening on {port}")
+                raise SystemExit(f"{label}: nothing listening on {port} after {STARTUP} seconds")
             if child.poll() is not None:
                 raise SystemExit(
                     f"{label}: the command exited ({child.returncode}) and "
@@ -163,9 +167,14 @@ def free_port():
     raise SystemExit("no free port between 20000 and 32000")
 
 
-def wait_for(port, seconds=20):
+# How long a cmd: system may take to start listening, loading whatever it needs.
+STARTUP = 120
+
+
+def wait_for(port, child, seconds=STARTUP):
+    """Whether something listens on the port before the time runs out or the child exits."""
     deadline = time.time() + seconds
-    while time.time() < deadline:
+    while time.time() < deadline and child.poll() is None:
         try:
             socket.create_connection(("127.0.0.1", port), timeout=0.2).close()
             return True

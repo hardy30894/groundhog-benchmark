@@ -17,10 +17,10 @@ import json
 import os
 import re
 import sys
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 from .. import data
+from ..server import LocalServer
 from .proxy import ProxyHandler, forward, opening_of, refuse_unknown_knobs, zero_usage
 
 MODELS = Path("models").resolve() / "w5h2"
@@ -167,7 +167,7 @@ class Classifier:
         return None, None
 
 
-class W5H2(ThreadingHTTPServer):
+class W5H2(LocalServer):
     def __init__(self, port, upstream):
         super().__init__(("127.0.0.1", port), Handler)
         refuse_unknown_knobs(os.environ, "GROUNDHOG_W5H2_", ("ALPHA", "UPSTREAM"))

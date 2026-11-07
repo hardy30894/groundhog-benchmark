@@ -5,12 +5,16 @@
 This is the template for a cache in any language: listen on the port you are given, read each
 request the agent sends, and either answer it yourself or pass it unchanged to the model's
 address. A reply you answer yourself must report zero token usage.
+
+It serves with socketserver's ThreadingTCPServer rather than http.server's HTTPServer, which
+looks up the host name before it listens, and that lookup takes half a minute on some machines.
 """
 
 import json
 import sys
 import urllib.request
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
+from socketserver import ThreadingTCPServer
 
 PORT, MODEL = int(sys.argv[1]), sys.argv[2]
 stored = {}
@@ -57,4 +61,4 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
 
-ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+ThreadingTCPServer(("127.0.0.1", PORT), Handler).serve_forever()

@@ -11,8 +11,8 @@ turns of a conversation are forwarded.
 import json
 import os
 import re
-from http.server import ThreadingHTTPServer
 
+from ..server import LocalServer
 from .proxy import ProxyHandler, forward, opening_of, refuse_unknown_knobs, zero_usage
 
 IDENTIFIER = re.compile(
@@ -71,7 +71,7 @@ def substitute(out, fresh):
             call["function"]["arguments"] = json.dumps(args)
 
 
-class LexCache(ThreadingHTTPServer):
+class LexCache(LocalServer):
     def __init__(self, port, upstream):
         super().__init__(("127.0.0.1", port), Handler)
         self.upstream = upstream

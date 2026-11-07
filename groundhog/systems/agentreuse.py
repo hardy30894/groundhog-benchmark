@@ -24,7 +24,6 @@ import os
 import re
 import secrets
 import threading
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 import numpy as np
@@ -32,6 +31,7 @@ import numpy as np
 from .. import data
 from ..model import call_id
 from ..score import EDGE
+from ..server import LocalServer
 from ..world import DOMAINS
 from .proxy import ProxyHandler, forward, opening_of, refuse_unknown_knobs, zero_usage
 
@@ -576,7 +576,7 @@ class Conversation:
         return fresh
 
 
-class AgentReuse(ThreadingHTTPServer):
+class AgentReuse(LocalServer):
     def __init__(self, port, upstream, reader=None, embedder=None):
         refuse_unknown_knobs(
             os.environ,

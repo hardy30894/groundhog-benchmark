@@ -13,13 +13,13 @@ window and truncate the request itself away.
 
 import json
 import os
-from http.server import ThreadingHTTPServer
 
+from ..server import LocalServer
 from .embedding import cosine, onnx_embedder
 from .proxy import ProxyHandler, forward, opening_of, refuse_unknown_knobs, zero_usage
 
 
-class GPTCache(ThreadingHTTPServer):
+class GPTCache(LocalServer):
     def __init__(self, port, upstream):
         super().__init__(("127.0.0.1", port), Handler)
         refuse_unknown_knobs(os.environ, "GROUNDHOG_GPTCACHE_", ("THRESHOLD",))

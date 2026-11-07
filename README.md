@@ -109,8 +109,8 @@ gave then, and forwards every other request to the model:
 
 ```python
 import json
-from http.server import ThreadingHTTPServer
 
+from groundhog.server import LocalServer
 from groundhog.systems.proxy import ProxyHandler, forward, opening_of, zero_usage
 
 
@@ -130,7 +130,7 @@ class Handler(ProxyHandler):
         self.reply(out)
 
 
-class ExactCache(ThreadingHTTPServer):
+class ExactCache(LocalServer):
     def __init__(self, port, upstream):
         super().__init__(("127.0.0.1", port), Handler)
         self.upstream = upstream

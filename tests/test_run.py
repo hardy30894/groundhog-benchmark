@@ -54,7 +54,7 @@ def test_installed_libraries_are_left_to_the_version_record(project):
 def test_the_examples_are_digested(monkeypatch):
     monkeypatch.chdir(ROOT)
     sources = run.system_sources("py:examples.exact_cache:ExactCache")
-    assert [Path(p).name for p in sources] == ["exact_cache.py", "proxy.py"]
+    assert [Path(p).name for p in sources] == ["exact_cache.py", "server.py", "proxy.py"]
 
 
 def test_a_command_gets_settings_credentials_and_plumbing_only():

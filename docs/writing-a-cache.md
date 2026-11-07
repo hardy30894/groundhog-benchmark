@@ -85,13 +85,15 @@ reaches the next.
 
 - **As a Python class** (`--system py:module:Class`): the harness constructs `Class(port, upstream)`,
   where `port` is the port to listen on and `upstream` the model's base URL, and serves it on a
-  thread. The class must be a `socketserver` server, such as `http.server.ThreadingHTTPServer`;
-  the harness calls `shutdown()` and `server_close()` at the end of the pair. The module is
-  imported from the current directory, so `py:mycache:MyCache` finds `mycache.py` beside you.
+  thread. The class must be a `socketserver` server; the harness calls `shutdown()` and
+  `server_close()` at the end of the pair. Subclass `groundhog.server.LocalServer`, as the
+  example does: it is `http.server.ThreadingHTTPServer` without the host-name lookup that class
+  makes when it binds, which takes half a minute on some machines. The module is imported from
+  the current directory, so `py:mycache:MyCache` finds `mycache.py` beside you.
 - **As a command** (`--system "cmd:..."`): the harness runs the command once per pair, after
   replacing `SYSTEM_PORT` with the port to listen on, `MODEL_PORT` with the model's port and
-  `CELL` with the pair's name, such as `support-lookup`. Your server must be listening within 20
-  seconds; it is terminated at the end of the pair. Name any files you keep with `CELL`, so pairs
+  `CELL` with the pair's name, such as `support-lookup`. Your server must be listening within two
+  minutes; it is terminated at the end of the pair. Name any files you keep with `CELL`, so pairs
   do not share them. If the command passes `--out` or `--trust` a file named with `CELL` that
   already exists, the harness refuses to start the pair, so a run never begins with an earlier
   run's state.

@@ -29,10 +29,10 @@ import re
 import threading
 from fractions import Fraction
 from functools import lru_cache
-from http.server import ThreadingHTTPServer
 
 from ..model import emit_anthropic, emit_openai, text_of
 from ..score import EDGE
+from ..server import LocalServer
 from .proxy import ProxyHandler, forward, opening_of, refuse_unknown_knobs, zero_usage
 
 START = ("start",)
@@ -453,7 +453,7 @@ def read_table(path, binder, mode):
     return Table.load(saved)
 
 
-class AgenticCache(ThreadingHTTPServer):
+class AgenticCache(LocalServer):
     def __init__(self, port, upstream, load=None, save=None, **knobs):
         config = settings(os.environ)
         config.update(knobs)

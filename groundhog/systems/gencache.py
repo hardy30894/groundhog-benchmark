@@ -28,8 +28,8 @@ import sys
 import tempfile
 import threading
 import time
-from http.server import ThreadingHTTPServer
 
+from ..server import LocalServer
 from .embedding import cosine, onnx_embedder
 from .proxy import ProxyHandler, forward, strip_ids, zero_usage
 
@@ -384,7 +384,7 @@ def sane(output, body):
     return blocks
 
 
-class GenCache(ThreadingHTTPServer):
+class GenCache(LocalServer):
     def __init__(self, port, upstream):
         super().__init__(("127.0.0.1", port), Handler)
         self.upstream = upstream

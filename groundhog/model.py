@@ -10,9 +10,10 @@ import json
 import re
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 
 from .domains import ASIDES, DOMAIN
+from .server import LocalServer
 from .world import STANDING_ERAS, SURVEY, SURVEY_LIMIT
 
 
@@ -256,7 +257,7 @@ def conversation_digest(body):
     ).hexdigest()[:16]
 
 
-class Model(ThreadingHTTPServer):
+class Model(LocalServer):
     """The model as an HTTP server, with the meter every cost is read from."""
 
     def __init__(self, port=0):

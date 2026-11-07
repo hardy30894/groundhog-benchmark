@@ -16,8 +16,8 @@ The opening turn of a conversation is served or forwarded; later turns are forwa
 import json
 import os
 import threading
-from http.server import ThreadingHTTPServer
 
+from ..server import LocalServer
 from .embedding import onnx_embedder
 from .proxy import ProxyHandler, forward, opening_of, refuse_unknown_knobs, strip_ids, zero_usage
 
@@ -60,7 +60,7 @@ def engines():
     return ModelUnderTest, OnnxEmbedding
 
 
-class VCache(ThreadingHTTPServer):
+class VCache(LocalServer):
     def __init__(self, port, upstream):
         from vcache import VCache as Library
         from vcache import VCacheConfig, VerifiedDecisionPolicy
